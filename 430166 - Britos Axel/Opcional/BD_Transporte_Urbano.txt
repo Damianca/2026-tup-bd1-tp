@@ -1,0 +1,789 @@
+USE master;
+GO
+ 
+IF DB_ID('Transporte_Urbano') IS NOT NULL
+BEGIN
+    ALTER DATABASE Transporte_Urbano SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE Transporte_Urbano;
+END
+GO
+ 
+CREATE DATABASE Transporte_Urbano;
+GO
+ 
+USE Transporte_Urbano;
+GO
+ 
+-- Tablas principales
+ 
+CREATE TABLE Empresas (
+    Codigo_Empresa INT IDENTITY(1,1) PRIMARY KEY,
+    Nombre VARCHAR(100) NOT NULL,
+    Telefono VARCHAR(100) NOT NULL
+);
+ 
+CREATE TABLE Choferes (
+    Codigo_Chofer INT IDENTITY(1,1) PRIMARY KEY,
+    Nombre VARCHAR(50) NOT NULL,
+    Apellido VARCHAR(50) NOT NULL,
+    DNI VARCHAR(20) NOT NULL
+);
+ 
+CREATE TABLE Calles (
+    Codigo_Calle INT IDENTITY(1,1) PRIMARY KEY,
+    Nombre_Calle VARCHAR(100) NOT NULL
+);
+ 
+CREATE TABLE Paradas (
+    Codigo_Parada INT IDENTITY(1,1) PRIMARY KEY,
+    Descripcion VARCHAR(100) NOT NULL
+);
+ 
+CREATE TABLE Sentidos_Viaje (
+    Codigo_Sentido INT IDENTITY(1,1) PRIMARY KEY,
+    Sentido VARCHAR(20) NOT NULL
+);
+ 
+CREATE TABLE Tipos_Mantenimiento (
+    Codigo_Tipo_Mantenimiento INT IDENTITY(1,1) PRIMARY KEY,
+    Descripcion VARCHAR(100) NOT NULL
+);
+ 
+-- Tablas que dependen de las tablas principales
+ 
+CREATE TABLE Lineas (
+    Codigo_Linea INT IDENTITY(1,1) PRIMARY KEY,
+    Numero_Linea VARCHAR(10) NOT NULL,
+    Codigo_Empresa INT NOT NULL,
+    FOREIGN KEY (Codigo_Empresa) REFERENCES Empresas(Codigo_Empresa)
+);
+ 
+CREATE TABLE Colectivos (
+    Nro_Coche INT IDENTITY(1,1) PRIMARY KEY,
+    Patente VARCHAR(10) NOT NULL,
+    Marca VARCHAR(50) NOT NULL,
+    Modelo VARCHAR(50) NOT NULL,
+    Codigo_Linea INT NOT NULL,
+    FOREIGN KEY (Codigo_Linea) REFERENCES Lineas(Codigo_Linea)
+);
+ 
+CREATE TABLE Asignaciones (
+    Codigo_Asignacion INT IDENTITY(1,1) PRIMARY KEY,
+    Codigo_Chofer INT NOT NULL,
+    Nro_Coche INT NOT NULL,
+    Fecha DATE NOT NULL,
+    Hora_inicio TIME(7) NOT NULL,
+    Hora_Fin TIME(7) NOT NULL,
+    FOREIGN KEY (Codigo_Chofer) REFERENCES Choferes(Codigo_Chofer),
+    FOREIGN KEY (Nro_Coche) REFERENCES Colectivos(Nro_Coche)
+);
+ 
+CREATE TABLE Mantenimientos (
+    Codigo_Mantenimiento INT IDENTITY(1,1) PRIMARY KEY,
+    Codigo_Colectivo INT NOT NULL,
+    Codigo_Tipo_Mantenimiento INT NOT NULL,
+    Fecha DATE NOT NULL,
+    Descripcion VARCHAR(200) NULL,
+    Costo DECIMAL(10,2) NULL,
+    FOREIGN KEY (Codigo_Colectivo) REFERENCES Colectivos(Nro_Coche),
+    FOREIGN KEY (Codigo_Tipo_Mantenimiento) REFERENCES Tipos_Mantenimiento(Codigo_Tipo_Mantenimiento)
+);
+ 
+CREATE TABLE Paradas_Calles (
+    Codigo_Parada_Calle INT IDENTITY(1,1) PRIMARY KEY,
+    Codigo_Parada INT NOT NULL,
+    Codigo_Calle INT NOT NULL,
+    Numero_Calle INT NOT NULL,
+    FOREIGN KEY (Codigo_Parada) REFERENCES Paradas(Codigo_Parada),
+    FOREIGN KEY (Codigo_Calle) REFERENCES Calles(Codigo_Calle)
+);
+ 
+CREATE TABLE Recorridos (
+    Codigo_Recorrido INT IDENTITY(1,1) PRIMARY KEY,
+    Descripcion VARCHAR(100) NOT NULL,
+    Codigo_Linea INT NOT NULL,
+    Codigo_Sentido INT NOT NULL,
+    FOREIGN KEY (Codigo_Linea) REFERENCES Lineas(Codigo_Linea),
+    FOREIGN KEY (Codigo_Sentido) REFERENCES Sentidos_Viaje(Codigo_Sentido)
+);
+ 
+CREATE TABLE Recorridos_Paradas (
+    Codigo_Recorrido INT NOT NULL,
+    Codigo_Parada INT NOT NULL,
+    Orden INT NOT NULL,
+    PRIMARY KEY (Codigo_Recorrido, Codigo_Parada),
+    FOREIGN KEY (Codigo_Recorrido) REFERENCES Recorridos(Codigo_Recorrido),
+    FOREIGN KEY (Codigo_Parada) REFERENCES Paradas(Codigo_Parada)
+);
+ 
+CREATE TABLE Servicios (
+    Codigo_Servicio INT IDENTITY(1,1) PRIMARY KEY,
+    Codigo_Recorrido INT NOT NULL,
+    Nro_Coche INT NOT NULL,
+    Codigo_Chofer INT NOT NULL,
+    Fecha DATE NOT NULL,
+    Hora_inicio TIME(7) NOT NULL,
+    Hora_Fin TIME(7) NOT NULL,
+    FOREIGN KEY (Codigo_Recorrido) REFERENCES Recorridos(Codigo_Recorrido),
+    FOREIGN KEY (Codigo_Chofer) REFERENCES Choferes(Codigo_Chofer),
+    FOREIGN KEY (Nro_Coche) REFERENCES Colectivos(Nro_Coche)
+);
+ 
+CREATE TABLE Ubicacion_Coche (
+    Codigo_Ubicacion_Coche INT IDENTITY(1,1) PRIMARY KEY,
+    Codigo_Servicio INT NOT NULL,
+    Latitud VARCHAR(100) NULL,
+    Longitud VARCHAR(100) NULL,
+    Fecha_Hora DATETIME NULL,
+    Velocidad_KmxH DECIMAL(5,2) NULL,
+    FOREIGN KEY (Codigo_Servicio) REFERENCES Servicios(Codigo_Servicio)
+);
+ 
+CREATE TABLE Tipos_Boleto (
+    Codigo_Tipo_Boleto INT IDENTITY(1,1) PRIMARY KEY,
+    Descripcion VARCHAR(100) NOT NULL,
+    Precio DECIMAL(10,2) NOT NULL
+);
+ 
+CREATE TABLE Boletos (
+    Codigo_Boleto INT IDENTITY(1,1) PRIMARY KEY,
+    Codigo_Servicio INT NOT NULL,
+    Codigo_Tipo_Boleto INT NOT NULL,
+    Fecha_Hora DATETIME NOT NULL,
+    Importe DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (Codigo_Servicio)
+        REFERENCES Servicios(Codigo_Servicio),
+    FOREIGN KEY (Codigo_Tipo_Boleto)
+        REFERENCES Tipos_Boleto(Codigo_Tipo_Boleto)
+);
+GO
+ 
+ 
+-- ============================================================
+-- DATOS
+-- ============================================================
+ 
+-- EMPRESAS
+INSERT INTO Empresas (Nombre, Telefono)
+VALUES
+('Coniferal', '3514001001'),
+('Sbus', '3514001002'),
+('Tamse', '3514001003');
+ 
+ 
+-- CHOFERES
+INSERT INTO Choferes (Nombre, Apellido, DNI)
+VALUES
+('Juan', 'Gomez', '30111222'),
+('Maria', 'Lopez', '31222333'),
+('Carlos', 'Fernandez', '32333444'),
+('Lucia', 'Martinez', '33444555'),
+('Diego', 'Rodriguez', '34555666'),
+('Sofia', 'Perez', '35666777'),
+('Pablo', 'Sanchez', '36777888'),
+('Camila', 'Romero', '37888999'),
+('Federico', 'Alvarez', '38999111'),
+('Valentina', 'Castro', '39111222'),
+('Nicolas', 'Herrera', '40222333'),
+('Julieta', 'Molina', '41333444'),
+('Federico', 'Alvarez', '40111223'),
+('Valentina', 'Castro', '40222334'),
+('Matias', 'Benitez', '40333445'),
+('Agustina', 'Herrera', '40444556');
+ 
+-- CALLES DE CORDOBA CAPITAL
+INSERT INTO Calles (Nombre_Calle)
+VALUES
+('Avenida Colon'),
+('General Paz'),
+('Duarte Quiros'),
+('Velez Sarsfield'),
+('Avenida Sabattini'),
+('Chacabuco'),
+('Rafael Nunez'),
+('Bulevar San Juan');
+ 
+-- PARADAS
+INSERT INTO Paradas (Descripcion)
+VALUES
+('Parada Centro - Plaza San Martin'),
+('Parada Colon y General Paz'),
+('Parada Duarte Quiros y Mariano Moreno'),
+('Parada Ciudad Universitaria'),
+('Parada Terminal de Omnibus'),
+('Parada Avenida Sabattini'),
+('Parada Nueva Cordoba'),
+('Parada Cerro de las Rosas');
+ 
+-- SENTIDOS DE VIAJE
+INSERT INTO Sentidos_Viaje (Sentido)
+VALUES
+('Ida'),
+('Vuelta');
+ 
+-- TIPOS DE MANTENIMIENTO
+INSERT INTO Tipos_Mantenimiento (Descripcion)
+VALUES
+('Cambio de aceite'),
+('Reparacion de frenos'),
+('Cambio de neumaticos'),
+('Mantenimiento general');
+ 
+-- LINEAS
+INSERT INTO Lineas (Numero_Linea, Codigo_Empresa)
+VALUES
+('10', 1),
+('20', 1),
+('30', 2),
+('40', 2),
+('50', 3);
+ 
+-- COLECTIVOS (los coches 18 a 22 son nuevos)
+INSERT INTO Colectivos (Patente, Marca, Modelo, Codigo_Linea)
+VALUES
+('AA101AA', 'Mercedes-Benz', 'OF 1721', 1),
+('AB102AA', 'Mercedes-Benz', 'OF 1721', 1),
+('AC201AA', 'Agrale', 'MT 15', 2),
+('AC202AA', 'Agrale', 'MT 15', 2),
+('AC301AA', 'Mercedes-Benz', 'OH 1621', 3),
+('AD302AA', 'Mercedes-Benz', 'OH 1621', 3),
+('AE401AA', 'Agrale', 'MT 15', 4),
+('AE402AA', 'Agrale', 'MT 15', 4),
+('AF501AA', 'Mercedes-Benz', 'OF 1721', 5),
+('AF502AA', 'Mercedes-Benz', 'OF 1721', 5),
+('AF503AA', 'Agrale', 'MT 15', 5),
+('AF504AA', 'Agrale', 'MT 15', 3),
+('AG601AA', 'Mercedes-Benz', 'OF 1721', 1),
+('AG602AA', 'Agrale', 'MT 15', 2),
+('AG603AA', 'Mercedes-Benz', 'OH 1621', 3),
+('AG604AA', 'Agrale', 'MT 15', 4),
+('AG605AA', 'Mercedes-Benz', 'OF 1721', 5),
+('AH701AA', 'Mercedes-Benz', 'OF 1721', 1),
+('AH702AA', 'Agrale', 'MT 15', 2),
+('AH703AA', 'Mercedes-Benz', 'OH 1621', 3),
+('AH704AA', 'Agrale', 'MT 15', 4),
+('AH705AA', 'Mercedes-Benz', 'OF 1721', 5);
+ 
+-- ASIGNACIONES DE CHOFERES A COLECTIVOS
+-- (las ultimas 15 son nuevas y tienen duracion variable, no todas de 8 horas)
+INSERT INTO Asignaciones (Codigo_Chofer, Nro_Coche, Fecha, Hora_inicio, Hora_Fin)
+VALUES
+(1, 1, '2026-10-01', '06:00', '14:00'),
+(2, 2, '2026-10-01', '14:00', '22:00'),
+(3, 3, '2026-10-02', '06:00', '14:00'),
+(4, 4, '2026-10-02', '14:00', '22:00'),
+(5, 5, '2026-10-03', '06:00', '14:00'),
+(6, 6, '2026-10-03', '14:00', '22:00'),
+(7, 7, '2026-10-04', '06:00', '14:00'),
+(8, 8, '2026-10-04', '14:00', '22:00'),
+(1, 9, '2026-10-05', '06:00', '14:00'),
+(3, 10, '2026-10-05', '14:00', '22:00'),
+(5, 11, '2026-10-06', '06:00', '14:00'),
+(7, 12, '2026-10-06', '14:00', '22:00'),
+(9, 13, '2026-10-09', '06:00', '14:00'),
+(9, 14, '2026-10-10', '14:00', '22:00'),
+(10, 15, '2026-10-11', '06:00', '14:00'),
+(11, 16, '2026-10-12', '14:00', '22:00'),
+(2, 13, '2026-10-12', '06:00', '14:00'),
+(4, 15, '2026-10-13', '14:00', '22:00'),
+(6, 16, '2026-10-14', '06:00', '14:00'),
+-- nuevas
+(1, 2, '2026-10-07', '06:00', '12:00'),
+(1, 13, '2026-10-08', '12:00', '18:00'),
+(2, 18, '2026-10-08', '06:00', '10:00'),
+(3, 19, '2026-10-09', '10:00', '20:00'),
+(4, 20, '2026-10-09', '05:00', '11:00'),
+(5, 21, '2026-10-10', '06:00', '10:00'),
+(6, 22, '2026-10-10', '16:00', '22:00'),
+(7, 18, '2026-10-11', '14:00', '22:00'),
+(8, 19, '2026-10-12', '06:00', '12:00'),
+(9, 20, '2026-10-13', '12:00', '18:00'),
+(10, 21, '2026-10-13', '06:00', '14:00'),
+(10, 22, '2026-10-14', '14:00', '20:00'),
+(11, 17, '2026-10-14', '08:00', '12:00'),
+(12, 17, '2026-10-15', '06:00', '14:00'),
+(12, 12, '2026-10-15', '14:00', '18:00');
+ 
+-- MANTENIMIENTOS
+INSERT INTO Mantenimientos (Codigo_Colectivo, Codigo_Tipo_Mantenimiento, Fecha, Descripcion, Costo)
+VALUES
+(1, 1, '2026-08-10', 'Cambio de aceite y filtros', 85000.00),
+(1, 4, '2026-09-12', 'Revision general', 120000.00),
+(2, 3, '2026-08-15', 'Cambio de dos neumaticos', 210000.00),
+(3, 2, '2026-08-20', 'Reparacion del sistema de frenos', 180000.00),
+(3, 1, '2026-09-20', 'Cambio de aceite', 75000.00),
+(4, 4, '2026-09-05', 'Mantenimiento preventivo', 95000.00),
+(5, 2, '2026-08-25', 'Reparacion de frenos', 160000.00),
+(5, 3, '2026-09-25', 'Cambio de neumaticos', 240000.00),
+(6, 1, '2026-09-01', 'Cambio de aceite y filtros', 80000.00),
+(7, 4, '2026-09-10', 'Revision del motor', 135000.00),
+(8, 2, '2026-09-18', 'Reparacion de frenos', 175000.00),
+(9, 1, '2026-09-22', 'Cambio de aceite', 70000.00),
+(9, 4, '2026-10-02', 'Mantenimiento general', 110000.00),
+(10, 3, '2026-10-04', 'Cambio de neumaticos', 230000.00),
+(11, 1, '2026-10-05', 'Cambio de aceite', 90000.00),
+(12, 4, '2026-10-06', 'Revision general', 125000.00),
+(2, 2, '2026-10-08', 'Ajuste del sistema de frenos', 145000.00),
+(6, 4, '2026-10-09', 'Mantenimiento preventivo', NULL),
+(14, 1, '2026-03-10','Cambio de aceite y filtros', 82000.00),
+(15, 2, '2026-10-10','Reparacion del sistema de frenos', 190000.00),
+-- nuevos: mantenimientos viejos (mas de 6 meses) para los coches sin service reciente
+(13, 4, '2026-02-20', 'Mantenimiento general', 98000.00),
+(16, 1, '2025-12-10', 'Cambio de aceite y filtros', 78000.00),
+(19, 3, '2026-01-15', 'Cambio de neumaticos', 205000.00),
+(20, 2, '2025-11-20', 'Reparacion de frenos', 168000.00),
+(22, 4, '2026-02-05', 'Revision general', 115000.00),
+-- nuevos: mantenimientos recientes con datos faltantes (costo o descripcion en NULL)
+(11, 3, '2026-10-12', 'Cambio de neumaticos', NULL),
+(7, 1, '2026-10-13', NULL, 88000.00);
+ 
+-- PARADAS POR CALLE
+INSERT INTO Paradas_Calles (Codigo_Parada, Codigo_Calle, Numero_Calle)
+VALUES
+(1, 2, 100),
+(2, 1, 1500),
+(3, 3, 800),
+(4, 4, 1200),
+(5, 5, 500),
+(6, 5, 1800),
+(7, 6, 400),
+(8, 7, 3500),
+(1, 6, 50),
+(3, 8, 600),
+(5, 2, 900),
+(7, 4, 700);
+ 
+-- RECORRIDOS
+INSERT INTO Recorridos
+    (Descripcion, Codigo_Linea, Codigo_Sentido)
+VALUES
+('Linea 10 - Ida hacia el centro', 1, 1),
+('Linea 10 - Vuelta desde el centro', 1, 2),
+('Linea 20 - Ida hacia Ciudad Universitaria', 2, 1),
+('Linea 20 - Vuelta hacia el centro', 2, 2),
+('Linea 30 - Ida hacia zona norte', 3, 1),
+('Linea 30 - Vuelta hacia el centro', 3, 2),
+('Linea 40 - Ida hacia zona sur', 4, 1),
+('Linea 40 - Vuelta hacia el centro', 4, 2),
+('Linea 50 - Ida hacia zona norte', 5, 1),
+('Linea 50 - Vuelta hacia el centro', 5, 2);
+ 
+ 
+-- PARADAS DE CADA RECORRIDO, EN ORDEN
+INSERT INTO Recorridos_Paradas
+    (Codigo_Recorrido, Codigo_Parada, Orden)
+VALUES
+(1, 4, 1),
+(1, 7, 2),
+(1, 1, 3),
+(2, 1, 1),
+(2, 7, 2),
+(2, 4, 3),
+ 
+(3, 5, 1),
+(3, 1, 2),
+(3, 4, 3),
+(4, 4, 1),
+(4, 1, 2),
+(4, 5, 3),
+ 
+(5, 8, 1),
+(5, 2, 2),
+(5, 1, 3),
+(6, 1, 1),
+(6, 2, 2),
+(6, 8, 3),
+ 
+(7, 6, 1),
+(7, 7, 2),
+(7, 1, 3),
+(8, 1, 1),
+(8, 7, 2),
+(8, 6, 3),
+ 
+(9, 8, 1),
+(9, 2, 2),
+(9, 5, 3),
+(10, 5, 1),
+(10, 2, 2),
+(10, 8, 3);
+ 
+ 
+-- SERVICIOS
+-- Servicios 1 a 50: originales. Se corrigieron el 22, 23, 25 y 27 para que
+-- el coche pertenezca a la misma linea que el recorrido.
+-- Servicios 51 a 64: nuevos.
+INSERT INTO Servicios
+    (Codigo_Recorrido, Nro_Coche, Codigo_Chofer,
+     Fecha, Hora_inicio, Hora_Fin)
+VALUES
+(1, 1, 1, '2026-10-01', '06:00', '07:30'),     -- 1
+(1, 2, 2, '2026-10-01', '08:00', '09:30'),     -- 2
+(2, 1, 1, '2026-10-01', '10:00', '11:30'),     -- 3
+(2, 2, 2, '2026-10-02', '14:00', '15:30'),     -- 4
+ 
+(3, 3, 3, '2026-10-02', '06:30', '08:00'),     -- 5
+(3, 4, 4, '2026-10-02', '09:00', '10:30'),     -- 6
+(4, 3, 3, '2026-10-03', '11:00', '12:30'),     -- 7
+(4, 4, 4, '2026-10-03', '15:00', '16:30'),     -- 8
+ 
+(5, 5, 5, '2026-10-03', '07:00', '08:30'),     -- 9
+(5, 6, 6, '2026-10-04', '08:00', '09:30'),     -- 10
+(6, 5, 5, '2026-10-04', '12:00', '13:30'),     -- 11
+(6, 12, 6, '2026-10-05', '16:00', '17:30'),    -- 12
+ 
+(7, 7, 7, '2026-10-05', '06:00', '07:30'),     -- 13
+(7, 8, 8, '2026-10-05', '10:00', '11:30'),     -- 14
+(8, 7, 7, '2026-10-06', '13:00', '14:30'),     -- 15
+(8, 8, 8, '2026-10-06', '17:00', '18:30'),     -- 16
+ 
+(9, 9, 1, '2026-10-07', '07:30', '09:00'),     -- 17
+(9, 10, 3, '2026-10-07', '09:30', '11:00'),    -- 18
+(10, 11, 5, '2026-10-08', '12:00', '13:30'),   -- 19
+(10, 9, 1, '2026-10-08', '16:00', '17:30'),    -- 20
+ 
+(1, 13, 9, '2026-10-09', '06:00', '07:30'),    -- 21
+(4, 14, 9, '2026-10-10', '14:00', '15:30'),    -- 22 (antes recorrido 2: coche 14 es de la linea 20)
+ 
+(5, 15, 10, '2026-10-11', '06:30', '08:00'),   -- 23 (antes recorrido 3: coche 15 es de la linea 30)
+(4, 3, 3, '2026-10-12', '15:00', '16:30'),     -- 24
+ 
+(7, 16, 11, '2026-10-12', '07:00', '08:30'),   -- 25 (antes recorrido 5: coche 16 es de la linea 40)
+(6, 5, 5, '2026-10-13', '12:00', '13:30'),     -- 26
+ 
+(9, 17, 7, '2026-10-13', '06:00', '07:30'),    -- 27 (antes recorrido 7: coche 17 es de la linea 50)
+(8, 8, 8, '2026-10-14', '17:00', '18:30'),     -- 28
+ 
+(9, 9, 1, '2026-10-14', '07:30', '09:00'),     -- 29
+(10, 11, 5, '2026-10-15', '12:00', '13:30'),   -- 30
+ 
+(3, 3, 1, '2025-02-10', '06:00', '07:30'),     -- 31
+(4, 4, 2, '2025-06-18', '08:00', '09:30'),     -- 32
+(3, 3, 3, '2025-10-12', '12:00', '13:30'),     -- 33
+(4, 4, 4, '2026-04-21', '15:00', '16:30'),     -- 34
+(3, 3, 5, '2026-09-07', '17:00', '18:30'),     -- 35
+(5, 5, 2, '2025-02-10', '06:30', '08:00'),     -- 36
+(6, 6, 3, '2025-06-18', '09:00', '10:30'),     -- 37
+(5, 12, 4, '2025-10-12', '13:00', '14:30'),    -- 38
+(6, 5, 5, '2026-04-21', '15:30', '17:00'),     -- 39
+(5, 6, 6, '2026-09-07', '18:00', '19:30'),     -- 40
+(7, 7, 3, '2025-02-10', '07:00', '08:30'),     -- 41
+(8, 8, 4, '2025-06-18', '10:00', '11:30'),     -- 42
+(7, 7, 5, '2025-10-12', '14:00', '15:30'),     -- 43
+(8, 8, 6, '2026-04-21', '16:00', '17:30'),     -- 44
+(7, 7, 7, '2026-09-07', '19:00', '20:30'),     -- 45
+(9, 9, 4, '2025-02-10', '07:30', '09:00'),     -- 46
+(10, 10, 5, '2025-06-18', '11:00', '12:30'),   -- 47
+(9, 11, 6, '2025-10-12', '15:00', '16:30'),    -- 48
+(10, 9, 7, '2026-04-21', '17:00', '18:30'),    -- 49
+(9, 10, 8, '2026-09-07', '20:00', '21:30'),    -- 50
+ 
+-- NUEVOS: servicios historicos de la linea 10 (no tenia ninguno)
+(1, 1, 1, '2025-02-10', '06:00', '07:30'),     -- 51
+(2, 2, 2, '2025-06-18', '08:00', '09:30'),     -- 52
+(1, 13, 9, '2025-10-12', '10:00', '11:30'),    -- 53
+(2, 1, 3, '2026-04-21', '14:00', '15:30'),     -- 54
+(1, 2, 4, '2026-09-07', '06:30', '08:00'),     -- 55
+ 
+-- NUEVOS: servicios de agosto y septiembre 2026 con los coches nuevos
+(2, 18, 7, '2026-08-18', '07:00', '08:30'),    -- 56 (linea 10)
+(4, 19, 8, '2026-08-25', '09:00', '10:30'),    -- 57 (linea 20)
+(6, 20, 9, '2026-09-02', '12:00', '13:30'),    -- 58 (linea 30)
+(8, 21, 10, '2026-09-14', '15:00', '16:30'),   -- 59 (linea 40)
+(10, 22, 11, '2026-09-21', '17:00', '18:30'),  -- 60 (linea 50)
+ 
+-- NUEVOS: servicios de octubre 2026 que coinciden con las asignaciones nuevas
+(1, 18, 7, '2026-10-11', '14:00', '15:30'),    -- 61 (linea 10)
+(4, 19, 8, '2026-10-12', '06:30', '08:00'),    -- 62 (linea 20)
+(7, 21, 10, '2026-10-13', '07:00', '08:30'),   -- 63 (linea 40)
+(10, 22, 10, '2026-10-14', '15:00', '16:30');  -- 64 (linea 50)
+ 
+-- UBICACION DE LOS COCHES
+INSERT INTO Ubicacion_Coche
+    (Codigo_Servicio, Latitud, Longitud,
+     Fecha_Hora, Velocidad_KmxH)
+VALUES
+(1, '-31.4167', '-64.1833', '2026-10-01T06:15:00', 15.50),
+(1, '-31.4200', '-64.1880', '2026-10-01T06:30:00', 27.20),
+(2, '-31.4170', '-64.1810', '2026-10-01T08:15:00', 34.80),
+(3, '-31.4180', '-64.1840', '2026-10-01T10:15:00', 46.30),
+(4, '-31.4210', '-64.1900', '2026-10-02T14:15:00', 15.90),
+(5, '-31.4380', '-64.1900', '2026-10-02T06:45:00', 08.10),
+(6, '-31.4250', '-64.1850', '2026-10-02T09:15:00', 37.50),
+(7, '-31.4300', '-64.1920', '2026-10-03T11:15:00', 56.80),
+(8, '-31.4167', '-64.1833', '2026-10-03T15:15:00', 45.20),
+(9, '-31.3900', '-64.2000', '2026-10-03T07:15:00', 29.00),
+(10, '-31.4000', '-64.1900', '2026-10-04T08:15:00', 18.40),
+(11, '-31.4200', '-64.1850', '2026-10-04T12:15:00', 36.10),
+(12, '-31.4250', '-64.1900', '2026-10-05T16:15:00', 27.70),
+(13, '-31.4400', '-64.1800', '2026-10-05T06:15:00', 08.60),
+(14, '-31.4300', '-64.1900', '2026-10-05T10:15:00', 35.60),
+(15, '-31.4200', '-64.1833', '2026-10-06T13:15:00', 36.40),
+(16, '-31.4350', '-64.1850', '2026-10-06T17:15:00', 47.30),
+(17, '-31.3900', '-64.2000', '2026-10-07T07:45:00', 39.20),
+(18, '-31.4100', '-64.1900', '2026-10-07T09:45:00', 48.70),
+(19, '-31.4250', '-64.1850', '2026-10-08T12:15:00', 25.80),
+(20, '-31.4167', '-64.1833', '2026-10-08T16:15:00', 16.90),
+(21, '-31.4160', '-64.1840', '2026-10-09T06:15:00', 22.50),
+(21, '-31.4190', '-64.1870', '2026-10-09T06:30:00', 31.20),
+(22, '-31.4210', '-64.1900', '2026-10-10T14:15:00', 18.40),
+(23, '-31.4380', '-64.1900', '2026-10-11T06:45:00', 28.60),
+(24, '-31.4250', '-64.1850', '2026-10-12T15:15:00', 35.10),
+(25, '-31.3900', '-64.2000', '2026-10-12T07:15:00', 42.30),
+(26, '-31.4000', '-64.1900', '2026-10-13T12:15:00', 26.80),
+(27, '-31.4300', '-64.1920', '2026-10-13T06:15:00', 19.70),
+(28, '-31.4167', '-64.1833', '2026-10-14T17:15:00', 33.40),
+(29, '-31.3900', '-64.2000', '2026-10-14T07:45:00', 37.80),
+(30, '-31.4250', '-64.1850', '2026-10-15T12:15:00', 24.60),
+-- nuevas (servicios 51 a 64)
+(51, '-31.4167', '-64.1833', '2025-02-10T06:20:00', 21.40),
+(52, '-31.4200', '-64.1880', '2025-06-18T08:20:00', 33.10),
+(53, '-31.4170', '-64.1810', '2025-10-12T10:20:00', 12.70),
+(54, '-31.4180', '-64.1840', '2026-04-21T14:20:00', 41.90),
+(55, '-31.4210', '-64.1900', '2026-09-07T06:45:00', 28.30),
+(56, '-31.4380', '-64.1900', '2026-08-18T07:20:00', 17.60),
+(57, '-31.4250', '-64.1850', '2026-08-25T09:20:00', 44.20),
+(58, '-31.4300', '-64.1920', '2026-09-02T12:20:00', 52.80),
+(59, '-31.4350', '-64.1850', '2026-09-14T15:20:00', 30.50),
+(60, '-31.3900', '-64.2000', '2026-09-21T17:20:00', 23.90),
+(61, '-31.4160', '-64.1840', '2026-10-11T14:20:00', 38.70),
+(62, '-31.4250', '-64.1850', '2026-10-12T06:50:00', 09.80),
+(63, '-31.4400', '-64.1800', '2026-10-13T07:20:00', 49.60),
+(64, '-31.4100', '-64.1900', '2026-10-14T15:20:00', 27.40);
+ 
+-- TIPOS DE BOLETO
+INSERT INTO Tipos_Boleto (Descripcion, Precio)
+VALUES ('Boleto urbano comun', 1580.00),
+    ('BEC', 0.00),
+    ('SUBE', 910.00),
+    ('BAM', 0.00);
+ 
+-- BOLETOS (tipos: 1 = comun 1580, 2 = BEC 0, 3 = SUBE 910, 4 = BAM 0)
+INSERT INTO Boletos (Codigo_Servicio, Codigo_Tipo_Boleto, Fecha_Hora, Importe)
+VALUES
+-- Servicio 1: Linea 10
+(1, 1, '2026-10-01T06:15:00', 1580.00),
+(1, 2, '2026-10-01T06:18:00', 0.00),
+(1, 1, '2026-10-01T06:22:00', 1580.00),
+(1, 3, '2026-10-01T06:25:00', 910.00),
+(1, 1, '2026-10-01T06:31:00', 1580.00),
+-- Servicio 2: Linea 10
+(2, 1, '2026-10-01T08:15:00', 1580.00),
+(2, 1, '2026-10-01T08:20:00', 1580.00),
+(2, 2, '2026-10-01T08:24:00', 0.00),
+(2, 4, '2026-10-01T08:29:00', 0.00),
+-- Servicio 3: Linea 10
+(3, 1, '2026-10-01T10:15:00', 1580.00),
+(3, 3, '2026-10-01T10:19:00', 910.00),
+(3, 1, '2026-10-01T10:23:00', 1580.00),
+-- Servicio 5: Linea 20
+(5, 1, '2026-10-02T06:45:00', 1580.00),
+(5, 2, '2026-10-02T06:49:00', 0.00),
+(5, 2, '2026-10-02T06:54:00', 0.00),
+(5, 1, '2026-10-02T06:58:00', 1580.00),
+-- Servicio 6: Linea 20
+(6, 1, '2026-10-02T09:15:00', 1580.00),
+(6, 1, '2026-10-02T09:20:00', 1580.00),
+(6, 3, '2026-10-02T09:25:00', 910.00),
+-- Servicio 9: Linea 30
+(9, 1, '2026-10-03T07:15:00', 1580.00),
+(9, 1, '2026-10-03T07:20:00', 1580.00),
+(9, 2, '2026-10-03T07:25:00', 0.00),
+(9, 1, '2026-10-03T07:30:00', 1580.00),
+-- Servicio 10: Linea 30
+(10, 1, '2026-10-03T08:15:00', 1580.00),
+(10, 3, '2026-10-03T08:20:00', 910.00),
+(10, 1, '2026-10-03T08:25:00', 1580.00),
+-- Servicio 13: Linea 40
+(13, 1, '2026-10-05T06:15:00', 1580.00),
+(13, 2, '2026-10-05T06:20:00', 0.00),
+(13, 1, '2026-10-05T06:25:00', 1580.00),
+-- Servicio 15: Linea 40
+(15, 1, '2026-10-06T13:15:00', 1580.00),
+(15, 1, '2026-10-06T13:20:00', 1580.00),
+(15, 3, '2026-10-06T13:25:00', 910.00),
+-- Servicio 17: Linea 50
+(17, 1, '2026-10-07T07:45:00', 1580.00),
+(17, 1, '2026-10-07T07:50:00', 1580.00),
+(17, 2, '2026-10-07T07:55:00', 0.00),
+(17, 1, '2026-10-07T08:00:00', 1580.00),
+-- Servicio 19: Linea 50
+(19, 1, '2026-10-08T12:15:00', 1580.00),
+(19, 3, '2026-10-08T12:20:00', 910.00),
+(19, 1, '2026-10-08T12:25:00', 1580.00),
+-- Servicio 21: Linea 10
+(21, 1, '2026-10-09T06:10:00', 1580.00),
+(21, 1, '2026-10-09T06:15:00', 1580.00),
+(21, 1, '2026-10-09T06:20:00', 1580.00),
+(21, 2, '2026-10-09T06:25:00', 0.00),
+(21, 3, '2026-10-09T06:30:00', 910.00),
+(21, 4, '2026-10-09T06:35:00', 0.00),
+-- Servicio 22: Linea 20 (corregido)
+(22, 1, '2026-10-10T14:10:00', 1580.00),
+(22, 1, '2026-10-10T14:15:00', 1580.00),
+(22, 3, '2026-10-10T14:20:00', 910.00),
+(22, 1, '2026-10-10T14:25:00', 1580.00),
+-- Servicio 23: Linea 30 (corregido)
+(23, 1, '2026-10-11T06:40:00', 1580.00),
+(23, 2, '2026-10-11T06:45:00', 0.00),
+(23, 1, '2026-10-11T06:50:00', 1580.00),
+(23, 3, '2026-10-11T06:55:00', 910.00),
+(23, 1, '2026-10-11T07:00:00', 1580.00),
+(23, 4, '2026-10-11T07:05:00', 0.00),
+-- Servicio 24: Linea 20
+(24, 1, '2026-10-12T15:10:00', 1580.00),
+(24, 1, '2026-10-12T15:15:00', 1580.00),
+(24, 3, '2026-10-12T15:20:00', 910.00),
+-- Servicio 25: Linea 40 (corregido)
+(25, 1, '2026-10-12T07:10:00', 1580.00),
+(25, 1, '2026-10-12T07:15:00', 1580.00),
+(25, 1, '2026-10-12T07:20:00', 1580.00),
+(25, 2, '2026-10-12T07:25:00', 0.00),
+(25, 3, '2026-10-12T07:30:00', 910.00),
+-- Servicio 26: Linea 30
+(26, 1, '2026-10-13T12:10:00', 1580.00),
+(26, 1, '2026-10-13T12:15:00', 1580.00),
+(26, 3, '2026-10-13T12:20:00', 910.00),
+(26, 2, '2026-10-13T12:25:00', 0.00),
+-- Servicio 27: Linea 50 (corregido)
+(27, 1, '2026-10-13T06:10:00', 1580.00),
+(27, 1, '2026-10-13T06:15:00', 1580.00),
+(27, 1, '2026-10-13T06:20:00', 1580.00),
+(27, 3, '2026-10-13T06:25:00', 910.00),
+(27, 2, '2026-10-13T06:30:00', 0.00),
+(27, 4, '2026-10-13T06:35:00', 0.00),
+-- Servicio 28: Linea 40
+(28, 1, '2026-10-14T17:10:00', 1580.00),
+(28, 1, '2026-10-14T17:15:00', 1580.00),
+(28, 3, '2026-10-14T17:20:00', 910.00),
+-- Servicio 29: Linea 50
+(29, 1, '2026-10-14T07:40:00', 1580.00),
+(29, 1, '2026-10-14T07:45:00', 1580.00),
+(29, 2, '2026-10-14T07:50:00', 0.00),
+(29, 1, '2026-10-14T07:55:00', 1580.00),
+(29, 3, '2026-10-14T08:00:00', 910.00),
+-- Servicio 30: Linea 50
+(30, 1, '2026-10-15T12:10:00', 1580.00),
+(30, 1, '2026-10-15T12:15:00', 1580.00),
+(30, 3, '2026-10-15T12:20:00', 910.00),
+(30, 1, '2026-10-15T12:25:00', 1580.00),
+ 
+-- ============ BOLETOS NUEVOS ============
+-- Servicios historicos (fuera de los ultimos 3 meses)
+-- Servicio 31: Linea 20 (2025-02-10)
+(31, 1, '2025-02-10T06:10:00', 1580.00),
+(31, 3, '2025-02-10T06:25:00', 910.00),
+(31, 1, '2025-02-10T06:40:00', 1580.00),
+-- Servicio 32: Linea 20 (2025-06-18)
+(32, 1, '2025-06-18T08:10:00', 1580.00),
+(32, 2, '2025-06-18T08:20:00', 0.00),
+(32, 1, '2025-06-18T08:35:00', 1580.00),
+-- Servicio 34: Linea 20 (2026-04-21)
+(34, 1, '2026-04-21T15:10:00', 1580.00),
+(34, 3, '2026-04-21T15:20:00', 910.00),
+(34, 1, '2026-04-21T15:30:00', 1580.00),
+-- Servicio 36: Linea 30 (2025-02-10)
+(36, 1, '2025-02-10T06:40:00', 1580.00),
+(36, 3, '2025-02-10T06:55:00', 910.00),
+-- Servicio 39: Linea 30 (2026-04-21)
+(39, 1, '2026-04-21T15:40:00', 1580.00),
+(39, 2, '2026-04-21T15:50:00', 0.00),
+(39, 1, '2026-04-21T16:05:00', 1580.00),
+-- Servicio 41: Linea 40 (2025-02-10)
+(41, 1, '2025-02-10T07:10:00', 1580.00),
+(41, 1, '2025-02-10T07:25:00', 1580.00),
+-- Servicio 44: Linea 40 (2026-04-21)
+(44, 1, '2026-04-21T16:10:00', 1580.00),
+(44, 3, '2026-04-21T16:25:00', 910.00),
+-- Servicio 46: Linea 50 (2025-02-10)
+(46, 1, '2025-02-10T07:40:00', 1580.00),
+(46, 3, '2025-02-10T07:55:00', 910.00),
+(46, 1, '2025-02-10T08:10:00', 1580.00),
+-- Servicio 49: Linea 50 (2026-04-21)
+(49, 1, '2026-04-21T17:10:00', 1580.00),
+(49, 4, '2026-04-21T17:20:00', 0.00),
+-- Servicio 51: Linea 10 (2025-02-10)
+(51, 1, '2025-02-10T06:05:00', 1580.00),
+(51, 1, '2025-02-10T06:15:00', 1580.00),
+(51, 3, '2025-02-10T06:25:00', 910.00),
+(51, 2, '2025-02-10T06:40:00', 0.00),
+(51, 1, '2025-02-10T06:55:00', 1580.00),
+-- Servicio 52: Linea 10 (2025-06-18)
+(52, 1, '2025-06-18T08:10:00', 1580.00),
+(52, 3, '2025-06-18T08:25:00', 910.00),
+(52, 1, '2025-06-18T08:40:00', 1580.00),
+(52, 4, '2025-06-18T08:55:00', 0.00),
+-- Servicio 54: Linea 10 (2026-04-21)
+(54, 1, '2026-04-21T14:10:00', 1580.00),
+(54, 1, '2026-04-21T14:25:00', 1580.00),
+(54, 3, '2026-04-21T14:40:00', 910.00),
+(54, 1, '2026-04-21T14:55:00', 1580.00),
+ 
+-- Servicios dentro de los ultimos 3 meses
+-- Servicio 35: Linea 20 (2026-09-07)
+(35, 1, '2026-09-07T17:10:00', 1580.00),
+(35, 2, '2026-09-07T17:25:00', 0.00),
+(35, 1, '2026-09-07T17:40:00', 1580.00),
+(35, 3, '2026-09-07T17:55:00', 910.00),
+-- Servicio 40: Linea 30 (2026-09-07)
+(40, 1, '2026-09-07T18:10:00', 1580.00),
+(40, 4, '2026-09-07T18:30:00', 0.00),
+(40, 1, '2026-09-07T18:50:00', 1580.00),
+-- Servicio 45: Linea 40 (2026-09-07)
+(45, 1, '2026-09-07T19:15:00', 1580.00),
+(45, 2, '2026-09-07T19:40:00', 0.00),
+-- Servicio 50: Linea 50 (2026-09-07)
+(50, 1, '2026-09-07T20:10:00', 1580.00),
+(50, 3, '2026-09-07T20:30:00', 910.00),
+(50, 1, '2026-09-07T20:50:00', 1580.00),
+(50, 2, '2026-09-07T21:10:00', 0.00),
+-- Servicio 55: Linea 10 (2026-09-07)
+(55, 1, '2026-09-07T06:40:00', 1580.00),
+(55, 1, '2026-09-07T06:50:00', 1580.00),
+(55, 3, '2026-09-07T07:05:00', 910.00),
+(55, 2, '2026-09-07T07:20:00', 0.00),
+(55, 1, '2026-09-07T07:35:00', 1580.00),
+-- Servicio 56: Linea 10 (2026-08-18)
+(56, 1, '2026-08-18T07:10:00', 1580.00),
+(56, 1, '2026-08-18T07:25:00', 1580.00),
+(56, 4, '2026-08-18T07:40:00', 0.00),
+(56, 3, '2026-08-18T07:55:00', 910.00),
+-- Servicio 57: Linea 20 (2026-08-25)
+(57, 1, '2026-08-25T09:10:00', 1580.00),
+(57, 3, '2026-08-25T09:25:00', 910.00),
+(57, 4, '2026-08-25T09:40:00', 0.00),
+(57, 1, '2026-08-25T09:55:00', 1580.00),
+-- Servicio 58: Linea 30 (2026-09-02)
+(58, 1, '2026-09-02T12:10:00', 1580.00),
+(58, 3, '2026-09-02T12:30:00', 910.00),
+(58, 4, '2026-09-02T12:50:00', 0.00),
+-- Servicio 59: Linea 40 (2026-09-14)
+(59, 1, '2026-09-14T15:10:00', 1580.00),
+(59, 4, '2026-09-14T15:30:00', 0.00),
+(59, 1, '2026-09-14T15:50:00', 1580.00),
+-- Servicio 60: Linea 50 (2026-09-21)
+(60, 1, '2026-09-21T17:10:00', 1580.00),
+(60, 1, '2026-09-21T17:25:00', 1580.00),
+(60, 3, '2026-09-21T17:45:00', 910.00),
+(60, 4, '2026-09-21T18:00:00', 0.00),
+-- Servicio 61: Linea 10 (2026-10-11)
+(61, 1, '2026-10-11T14:10:00', 1580.00),
+(61, 1, '2026-10-11T14:20:00', 1580.00),
+(61, 3, '2026-10-11T14:35:00', 910.00),
+(61, 2, '2026-10-11T14:50:00', 0.00),
+(61, 1, '2026-10-11T15:05:00', 1580.00),
+-- Servicio 62: Linea 20 (2026-10-12)
+(62, 1, '2026-10-12T06:40:00', 1580.00),
+(62, 1, '2026-10-12T06:50:00', 1580.00),
+(62, 3, '2026-10-12T07:00:00', 910.00),
+(62, 1, '2026-10-12T07:15:00', 1580.00),
+(62, 2, '2026-10-12T07:30:00', 0.00),
+-- Servicio 63: Linea 40 (2026-10-13)
+(63, 1, '2026-10-13T07:10:00', 1580.00),
+(63, 3, '2026-10-13T07:30:00', 910.00),
+(63, 1, '2026-10-13T07:50:00', 1580.00),
+-- Servicio 64: Linea 50 (2026-10-14)
+(64, 1, '2026-10-14T15:10:00', 1580.00),
+(64, 3, '2026-10-14T15:30:00', 910.00),
+(64, 1, '2026-10-14T15:50:00', 1580.00);
+GO

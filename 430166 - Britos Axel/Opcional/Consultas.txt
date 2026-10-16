@@ -1,0 +1,186 @@
+USE Transporte_Urbano;
+GO
+
+/* ------------------------------------------------------------
+   CONSULTA 1 (subconsulta con NOT EXISTS)
+   Enunciado: Listar los colectivos que no tuvieron ningun mantenimiento
+   en los ultimos 6 meses, indicando la linea a la que pertenecen.
+
+   Utilidad: le permite al jefe de mantenimiento (encargado del taller)
+   detectar que unidades de la flota estan atrasadas con sus controles
+   y programar primero los services de esos coches, sabiendo ademas a que
+   linea pertenece cada uno para coordinar su salida de servicio.
+------------------------------------------------------------ */
+SELECT  co.Nro_Coche, co.Patente, co.Marca, co.Modelo, l.Numero_Linea
+FROM Colectivos co
+JOIN Lineas l ON l.Codigo_Linea = co.Codigo_Linea
+WHERE NOT EXISTS (
+        SELECT 1
+        FROM Mantenimientos m
+        WHERE m.Codigo_Colectivo = co.Nro_Coche
+          AND m.Fecha >= DATEADD(MONTH, -6, GETDATE())
+)
+ORDER BY l.Numero_Linea, co.Nro_Coche;
+GO
+
+
+/* ------------------------------------------------------------
+Consulta 2: Procedimiento almacenado para consultar servicios por período
+
+Crear un procedimiento almacenado que reciba una fecha de inicio y una fecha de fin como parámetros, y muestre todos los servicios realizados dentro de ese período. El resultado debe incluir la fecha del servicio, el horario de inicio y finalización, el nombre y apellido del chofer, el número de coche, la patente, el número de línea y la descripción del recorrido. Los resultados deben mostrarse ordenados por fecha y horario de inicio.
+
+Utilidad: le permite al encargado de operaciones (despachante) revisar rapidamente la actividad de cualquier periodo, por ejemplo para controlar que chofer condujo cada coche, verificar el cumplimiento de los horarios o responder un reclamo sobre un servicio puntual, sin tener que armar la consulta cada vez.
+   ------------------------------------------------------------ */
+
+CREATE OR ALTER PROCEDURE ConsultarServiciosPorPeriodo
+    @FechaInicio DATE,
+    @FechaFin DATE
+AS
+BEGIN
+    SELECT
+        S.Fecha,
+        S.Hora_inicio,
+        S.Hora_Fin,
+        CH.Nombre,
+        CH.Apellido,
+        C.Nro_Coche,
+        C.Patente,
+        L.Numero_Linea,
+        R.Descripcion AS Recorrido
+    FROM Servicios S
+    INNER JOIN Choferes CH
+        ON S.Codigo_Chofer = CH.Codigo_Chofer
+    INNER JOIN Colectivos C
+        ON S.Nro_Coche = C.Nro_Coche
+    INNER JOIN Recorridos R
+        ON S.Codigo_Recorrido = R.Codigo_Recorrido
+    INNER JOIN Lineas L
+        ON R.Codigo_Linea = L.Codigo_Linea
+    WHERE S.Fecha BETWEEN @FechaInicio AND @FechaFin
+    ORDER BY S.Fecha, S.Hora_inicio;
+END;
+GO
+
+EXEC ConsultarServiciosPorPeriodo
+    @FechaInicio = '2026-10-01',
+    @FechaFin = '2026-10-10';
+GO
+
+/* ------------------------------------------------------------
+Consulta 3: Vista de recaudación por línea y tipo de boleto en los ultimos 3 meses.
+
+La vista permite analizar la actividad económica de cada línea de transporte durante los últimos tres meses. Para ello, muestra el número de línea, el tipo de boleto, la cantidad de boletos registrados y la recaudación total. Para obtener estos resultados, se relacionan las tablas Boletos, Servicios, Recorridos, Lineas y Tipos_Boleto. Se utilizan funciones de agregación y GROUP BY para agrupar los datos por línea y tipo de boleto, mientras que WHERE y DATEADD permiten limitar el análisis al período establecido.
+
+Utilidad: le permite al gerente comercial (o al responsable de finanzas) de la empresa comparar cuanto recauda cada línea y que peso tiene cada tipo de boleto, incluyendo los boletos sin costo (BEC y BAM). Con eso puede evaluar la rentabilidad de cada línea y el impacto de los beneficios gratuitos en los ingresos.
+   ------------------------------------------------------------ */
+
+CREATE OR ALTER VIEW Vista_Recaudacion_Linea_Tipo_Boleto
+AS
+SELECT
+    L.Numero_Linea,
+    TB.Descripcion AS Tipo_Boleto,
+    COUNT(B.Codigo_Boleto) AS Cantidad_Boletos,
+    SUM(B.Importe) AS Recaudacion_Total
+FROM Boletos B
+INNER JOIN Servicios S
+    ON B.Codigo_Servicio = S.Codigo_Servicio
+INNER JOIN Recorridos R
+    ON S.Codigo_Recorrido = R.Codigo_Recorrido
+INNER JOIN Lineas L
+    ON R.Codigo_Linea = L.Codigo_Linea
+INNER JOIN Tipos_Boleto TB
+    ON B.Codigo_Tipo_Boleto = TB.Codigo_Tipo_Boleto
+WHERE S.Fecha >= DATEADD(MONTH, -3, GETDATE())
+GROUP BY
+    L.Numero_Linea,
+    TB.Descripcion;
+GO
+
+SELECT * FROM Vista_Recaudacion_Linea_Tipo_Boleto ORDER BY Numero_Linea, Tipo_Boleto;
+GO
+
+/* ------------------------------------------------------------
+Consulta 4: Líneas con una cantidad de boletos superior al promedio.
+
+La consulta permite identificar las líneas que registraron una mayor cantidad de boletos en comparación con el promedio general. Para ello, se relacionan las tablas correspondientes mediante JOIN, se utiliza COUNT para contar los boletos de cada línea y una subconsulta para calcular el promedio de esas cantidades. Finalmente, se utiliza HAVING para mostrar únicamente las líneas que superan dicho promedio.
+
+Utilidad: le permite al gerente general o responsable de planificación de la red identificar las líneas con mayor demanda de pasajeros, para decidir donde conviene reforzar frecuencias, asignar mas coches o priorizar inversiones, y ver ademas a que empresa pertenece cada una de esas lineas.
+------------------------------------------------------------ */
+SELECT
+    L.Numero_Linea,
+    E.Nombre AS Empresa,
+    COUNT(B.Codigo_Boleto) AS Cantidad_Boletos,
+    SUM(B.Importe) AS Recaudacion_Total,
+    AVG(B.Importe) AS Importe_Promedio
+FROM Lineas L
+INNER JOIN Empresas E
+    ON L.Codigo_Empresa = E.Codigo_Empresa
+INNER JOIN Recorridos R
+    ON L.Codigo_Linea = R.Codigo_Linea
+INNER JOIN Servicios S
+    ON R.Codigo_Recorrido = S.Codigo_Recorrido
+INNER JOIN Boletos B
+    ON S.Codigo_Servicio = B.Codigo_Servicio
+GROUP BY
+    L.Numero_Linea,
+    E.Nombre
+HAVING COUNT(B.Codigo_Boleto) >
+(
+    SELECT AVG(Cantidad_Boletos * 1.0)
+    FROM
+    (
+        SELECT
+            L2.Codigo_Linea,
+            COUNT(B2.Codigo_Boleto) AS Cantidad_Boletos
+        FROM Lineas L2
+        INNER JOIN Recorridos R2
+            ON L2.Codigo_Linea = R2.Codigo_Linea
+        INNER JOIN Servicios S2
+            ON R2.Codigo_Recorrido = S2.Codigo_Recorrido
+        INNER JOIN Boletos B2
+            ON S2.Codigo_Servicio = B2.Codigo_Servicio
+        GROUP BY L2.Codigo_Linea
+    ) AS PromedioLineas
+)
+ORDER BY Cantidad_Boletos DESC;
+GO
+
+
+/* ------------------------------------------------------------
+Consulta 5: Estado de las asignaciones de los choferes
+
+Esta vista permite consultar la cantidad de asignaciones registradas para cada chofer, identificando cuáles tienen asignaciones y cuáles no. Utiliza las tablas Choferes y Asignaciones, combinando INNER JOIN, GROUP BY, COUNT, NOT EXISTS y UNION ALL para clasificar a los choferes según su situación actual. De esta manera, facilita el seguimiento de las asignaciones y permite identificar a los choferes que no tienen ninguna asignación registrada.
+
+Utilidad: le permite al jefe de personal (encargado de la programacion de choferes) ver cuantas asignaciones y cuantas horas lleva cada chofer, para repartir la carga de trabajo de forma pareja y detectar a los choferes que estan sin asignar y pueden cubrir ausencias o nuevos servicios.
+------------------------------------------------------------ */
+
+CREATE OR ALTER VIEW Vista_Estado_Asignaciones_Choferes AS
+    SELECT C.Codigo_Chofer,
+        C.Nombre,
+        C.Apellido,
+        'Con asignaciones' AS Estado,
+        COUNT(A.Codigo_Asignacion) AS Cantidad_Asignaciones,
+        SUM( DATEDIFF(MINUTE, A.Hora_inicio, A.Hora_Fin) ) AS Minutos_Asignados
+    FROM Choferes C
+        INNER JOIN Asignaciones A ON C.Codigo_Chofer = A.Codigo_Chofer
+    GROUP BY C.Codigo_Chofer, C.Nombre, C.Apellido
+
+    UNION ALL
+
+    SELECT C.Codigo_Chofer,
+        C.Nombre,
+        C.Apellido,
+        'Sin asignaciones' AS Estado,
+        0 AS Cantidad_Asignaciones,
+        0 AS Minutos_Asignados
+    FROM Choferes C
+    WHERE NOT EXISTS
+        ( SELECT 1
+        FROM Asignaciones A
+        WHERE A.Codigo_Chofer = C.Codigo_Chofer );
+GO
+
+SELECT *
+FROM Vista_Estado_Asignaciones_Choferes
+ORDER BY Estado, Codigo_Chofer;
+GO
